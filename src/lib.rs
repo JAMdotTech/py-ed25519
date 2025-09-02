@@ -21,12 +21,15 @@
 //! use and management of ed25519 elliptic keys.
 
 use pyo3::prelude::*;
-use pyo3::types::{PyBytes, PyTuple};
-use pyo3::{wrap_pyfunction, IntoPy, PyObject, exceptions};
+use pyo3::types::{PyBytes};
+use pyo3::{wrap_pyfunction, exceptions};
 use std::convert::TryFrom;
 use ::ed25519_zebra::{SigningKey, VerificationKey, Signature};
 
+#[derive(IntoPyObject, IntoPyObjectRef)]
 pub struct PyKeypair([u8; 32], [u8; 32]);
+
+#[derive(IntoPyObject, IntoPyObjectRef)]
 pub struct PySignature([u8; 64]);
 
 pub struct Pair {
@@ -85,7 +88,7 @@ pub fn ed_public_from_secret(secret: &[u8], py: Python) -> PyResult<Py<PyBytes>>
 	let secret = SigningKey::try_from(secret).map_err(|err| exceptions::PyValueError::new_err(format!("Invalid secret key: {}", err.to_string())))?;
 	let public = VerificationKey::from(&secret);
 
-	Ok(PyBytes::new_bound(py, &public.as_ref()).into())
+	Ok(PyBytes::new(py, &public.as_ref()).into())
 }
 
 /// Signs a message with the given keypair, returning the resulting signature.
@@ -141,24 +144,4 @@ fn ed25519_zebra(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(ed_verify, m)?)?;
     m.add_function(wrap_pyfunction!(ed_public_from_secret, m)?)?;
     Ok(())
-}
-
-// Convert Keypair object to a Python Keypair tuple
-impl IntoPy<PyObject> for PyKeypair {
-    fn into_py(self, py: Python) -> PyObject {
-        let secret = PyBytes::new_bound(py, &self.0);
-        let public = PyBytes::new_bound(py, &self.1);
-
-        PyTuple::new_bound(py, vec![secret, public]).into_py(py)
-    }
-}
-
-// Convert Keypair object to a Python Keypair tuple
-impl IntoPy<PyObject> for PySignature {
-    fn into_py(self, py: Python) -> PyObject {
-        // let sig = PyBytes::new(py, &self.0);
-        let sig = PyBytes::new_bound(py, &self.0);
-
-        sig.into_py(py)
-    }
 }
