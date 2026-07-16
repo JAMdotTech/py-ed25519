@@ -137,7 +137,7 @@ pub fn ed_verify(signature: &[u8], message: &[u8], public: &[u8]) -> bool {
 
 
 /// This module is a Python module implemented in Rust.
-#[pymodule]
+#[pymodule(gil_used = false)]
 fn ed25519_zebra(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(ed_from_seed, m)?)?;
     m.add_function(wrap_pyfunction!(ed_sign, m)?)?;
