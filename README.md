@@ -19,6 +19,17 @@ pip install py-ed25519-zebra-bindings
 pip install -r requirements.txt
 maturin develop
 ```
+
+The extension supports free-threaded CPython. To build and test it with Python
+3.14t while keeping the GIL disabled:
+
+```
+uv venv --python 3.14t
+uv pip install -r requirements.txt
+uv pip install .
+.venv/bin/python -X gil=0 -m unittest -v tests.py
+```
+
 ### Build wheels
 ```
 pip install -r requirements.txt

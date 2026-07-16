@@ -1,5 +1,5 @@
 [build-system]
-requires = ["maturin>=1.7.0,<1.10.0"]
+requires = ["maturin>=1.14.0,<2.0.0"]
 build-backend = "maturin"
 
 [project]
@@ -22,7 +22,9 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13"
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Free Threading :: 3 - Stable"
 ]
 
 [project.urls]

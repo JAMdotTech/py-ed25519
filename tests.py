@@ -14,10 +14,33 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import subprocess
+import sys
+import sysconfig
+import threading
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 
-import bip39
 import ed25519_zebra
+
+
+TEST_SEED = bytes.fromhex(
+    "31625bbf7c317c00d063f829c483c360737fab5210cdbb2d14c328165b15d180",
+)
+
+
+def exercise_crypto_concurrently(barrier, seed, worker_id):
+    barrier.wait()
+    private_key, public_key = ed25519_zebra.ed_from_seed(seed)
+    derived_public_key = ed25519_zebra.ed_public_from_secret(private_key)
+
+    for iteration in range(100):
+        message = f"worker-{worker_id}-iteration-{iteration}".encode()
+        signature = ed25519_zebra.ed_sign(private_key, message)
+        if not ed25519_zebra.ed_verify(signature, message, public_key):
+            return False
+
+    return public_key == derived_public_key
 
 
 class MyTestCase(unittest.TestCase):
@@ -26,8 +49,7 @@ class MyTestCase(unittest.TestCase):
         message = b"test"
 
         # Get private and public key from seed
-        seed = bip39.bip39_to_mini_secret('daughter song common combine misery cotton audit morning stuff weasel flee field','')
-        private_key, public_key = ed25519_zebra.ed_from_seed(bytes(seed))
+        private_key, public_key = ed25519_zebra.ed_from_seed(TEST_SEED)
 
         # Generate signature
         signature = ed25519_zebra.ed_sign(private_key, message)
@@ -55,9 +77,7 @@ class MyTestCase(unittest.TestCase):
 
     def test_verify_invalid_signature(self):
         # Get private and public key from seed
-        seed = bip39.bip39_to_mini_secret(
-            'daughter song common combine misery cotton audit morning stuff weasel flee field', '')
-        private_key, public_key = ed25519_zebra.ed_from_seed(bytes(seed))
+        private_key, public_key = ed25519_zebra.ed_from_seed(TEST_SEED)
 
         # Verify message with signature
         self.assertFalse(ed25519_zebra.ed_verify(bytes(32), b"test", public_key))
@@ -73,6 +93,43 @@ class MyTestCase(unittest.TestCase):
         private_key = bytes(32)
         public_key = ed25519_zebra.ed_public_from_secret(private_key)
         self.assertEqual(bytes.fromhex("3b6a27bcceb6a42d62a3a8d02a6f0d73653215771de243a63ac048a18b59da29"), public_key)
+
+    def test_concurrent_signing_and_verification(self):
+        if sysconfig.get_config_var("Py_GIL_DISABLED") == 1:
+            self.assertFalse(sys._is_gil_enabled())
+
+        worker_count = 16
+        barrier = threading.Barrier(worker_count)
+        seed = bytes(range(32))
+
+        with ThreadPoolExecutor(max_workers=worker_count) as executor:
+            results = executor.map(
+                exercise_crypto_concurrently,
+                [barrier] * worker_count,
+                [seed] * worker_count,
+                range(worker_count),
+            )
+
+        self.assertTrue(all(results))
+
+    @unittest.skipUnless(
+        sysconfig.get_config_var("Py_GIL_DISABLED") == 1,
+        "requires a free-threaded Python build",
+    )
+    def test_import_does_not_enable_gil(self):
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-X",
+                "gil=0",
+                "-c",
+                "import ed25519_zebra, sys; assert not sys._is_gil_enabled()",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
 
 
 if __name__ == '__main__':
